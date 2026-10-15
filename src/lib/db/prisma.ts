@@ -18,9 +18,14 @@ const globalForPrisma = globalThis as unknown as {
  * already includes this and is left untouched.
  */
 function databaseUrl(): string {
-  const url = env.DATABASE_URL;
-  if (!process.env.VERCEL || /[?&]connection_limit=/.test(url)) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}connection_limit=1`;
+  let url = env.DATABASE_URL;
+  if (!process.env.VERCEL) return url;
+  const extra: string[] = [];
+  // Neon’s pooler is PgBouncer. Prisma prepared statements fail without this flag.
+  if (url.includes("-pooler") && !/[?&]pgbouncer=true(?:&|$)/.test(url)) extra.push("pgbouncer=true");
+  if (!/[?&]connection_limit=/.test(url)) extra.push("connection_limit=1");
+  if (!extra.length) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${extra.join("&")}`;
 }
 
 function createClient(): PrismaClient {

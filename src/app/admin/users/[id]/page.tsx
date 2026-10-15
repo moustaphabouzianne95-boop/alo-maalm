@@ -55,7 +55,7 @@ export default async function AdminUserPage({ params }: Props) {
             <dd>{user.identity?.city ? cityName(user.identity.city, locale) : "—"}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">{t("common.memberSince", { date: "" })}</dt>
+            <dt className="text-xs text-muted-foreground">{t("common.memberSince")}</dt>
             <dd>{formatDateServer(user.createdAt, locale)}</dd>
           </div>
           <div>
