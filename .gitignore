@@ -25,3 +25,10 @@ public/uploads
 
 # Vercel link metadata (project id). Never commit tokens.
 .vercel
+.env.local
+
+# Installed by `vercel integration add` — not part of the app.
+.agents/
+.claude/
+/agent/
+skills-lock.json
