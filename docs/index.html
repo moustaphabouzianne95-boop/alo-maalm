@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ألو المعلم · Alo Maalem</title>
+  <meta name="description" content="معاينة واجهة ألو المعلم — سوق الخدمات المحلية في المغرب. الطلب، العروض بالدرهم، والحجز." />
+  <style>
+    :root {
+      --ink: #1b2340;
+      --ink-soft: #5c6784;
+      --line: #e4e9f2;
+      --paper: #f6f8fb;
+      --card: #ffffff;
+      --emerald: #0f6b48;
+      --emerald-deep: #0b4f36;
+      --mint: #e8f6ef;
+      --gold: #dd9a20;
+      --gold-soft: #fdf6e6;
+      --shadow: 0 1px 2px rgb(13 18 38 / 0.04), 0 16px 40px -18px rgb(13 18 38 / 0.28);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 420px at 100% -10%, #d9f3e6 0%, transparent 60%),
+        radial-gradient(700px 360px at 0% 0%, #fff4d8 0%, transparent 55%),
+        var(--paper);
+      font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", Arial, sans-serif;
+      line-height: 1.65;
+    }
+    a { color: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    header {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(14px);
+      background: rgb(246 248 251 / 0.86);
+      border-bottom: 1px solid rgb(228 233 242 / 0.9);
+    }
+    .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .mark {
+      width: 40px; height: 40px; border-radius: 12px; background: var(--emerald);
+      display: grid; place-items: center; color: white; box-shadow: 0 8px 18px -10px var(--emerald);
+    }
+    .brand strong { display: block; font-size: 18px; letter-spacing: 0; }
+    .brand span { display: block; color: var(--ink-soft); font-size: 12px; margin-top: -2px; }
+    nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    nav a, .lang button, .ghost, .solid {
+      border: 1px solid var(--line); background: white; color: var(--ink);
+      border-radius: 999px; padding: 8px 14px; text-decoration: none; font: inherit; cursor: pointer;
+    }
+    .lang { display: flex; gap: 4px; }
+    .lang button[aria-pressed="true"], .screens button[aria-pressed="true"] {
+      background: var(--ink); color: white; border-color: var(--ink);
+    }
+    .solid { background: var(--emerald); color: white; border-color: var(--emerald); font-weight: 700; }
+    .hero { padding: 56px 0 20px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 36px; align-items: center; }
+    .kicker {
+      display: inline-flex; align-items: center; gap: 8px; border: 1px solid #ead7a2;
+      background: var(--gold-soft); color: #7a5410; border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700;
+    }
+    h1 { font-size: clamp(32px, 5vw, 54px); line-height: 1.2; margin: 14px 0 10px; letter-spacing: 0; }
+    .lede { font-size: 18px; color: #3d4763; max-width: 38rem; margin: 0; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .trust { display: flex; flex-wrap: wrap; gap: 14px 18px; margin: 18px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: 13px; }
+    .trust li::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--emerald); margin-inline-end: 8px; }
+    .stage {
+      background: white; border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); overflow: hidden;
+    }
+    .chrome { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #f3f6fb; border-bottom: 1px solid var(--line); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #d5dbe8; }
+    .dot:nth-child(1) { background: #f0b4ae; } .dot:nth-child(2) { background: #f3d48a; } .dot:nth-child(3) { background: #b7e0c8; }
+    .url { flex: 1; background: white; border-radius: 999px; padding: 6px 12px; color: var(--ink-soft); font-size: 12px; direction: ltr; text-align: left; }
+    .screen { padding: 16px; min-height: 360px; }
+    .search {
+      display: flex; gap: 8px; background: white; border: 1px solid var(--line); border-radius: 14px; padding: 8px;
+      box-shadow: 0 8px 24px -18px var(--ink);
+    }
+    .search div { flex: 1; background: var(--paper); border-radius: 10px; padding: 10px 12px; color: var(--ink-soft); font-size: 14px; }
+    .search b { background: var(--emerald); color: white; border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .chip { background: var(--mint); color: var(--emerald-deep); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: white; }
+    .card h3 { margin: 8px 0 2px; font-size: 15px; }
+    .meta { color: var(--ink-soft); font-size: 12px; }
+    .price { color: var(--emerald-deep); font-weight: 800; margin-top: 8px; }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: white; font-weight: 800;
+    }
+    .row { display: flex; align-items: center; gap: 10px; }
+    .badge { margin-inline-start: auto; background: var(--gold-soft); color: #7a5410; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 800; }
+    .screens { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 28px; }
+    .screens button { font: inherit; cursor: pointer; border-radius: 999px; border: 1px solid var(--line); background: white; padding: 8px 14px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .offer { display: flex; justify-content: space-between; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-top: 10px; background: white; }
+    .offer.pick { border-color: #9ed7bb; background: #f4fbf7; }
+    .steps, .roles, .accounts { display: grid; gap: 12px; }
+    .steps { grid-template-columns: repeat(5, 1fr); }
+    .roles, .accounts { grid-template-columns: repeat(3, 1fr); }
+    section { padding: 10px 0 36px; }
+    h2 { font-size: 28px; margin: 0 0 8px; }
+    .sub { color: var(--ink-soft); margin: 0 0 18px; }
+    .step, .role, .account { background: white; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 10px 30px -24px var(--ink); }
+    .num { width: 28px; height: 28px; border-radius: 9px; background: var(--ink); color: white; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+    .step h3, .role h3 { margin: 10px 0 4px; font-size: 16px; }
+    .step p, .role p, .account p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+    .account code { display: block; direction: ltr; text-align: left; background: var(--paper); border-radius: 10px; padding: 8px 10px; margin-top: 10px; font-size: 13px; }
+    .note { background: #fff; border: 1px dashed #c9d3ea; border-radius: 16px; padding: 14px 16px; color: #3d4763; }
+    footer { border-top: 1px solid var(--line); padding: 22px 0 36px; color: var(--ink-soft); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .timeline { display: grid; gap: 8px; margin-top: 12px; }
+    .tl { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+    .tl i { width: 10px; height: 10px; border-radius: 50%; background: var(--emerald); display: block; }
+    .tl.wait i { background: #d5dbe8; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: start; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+    th { color: var(--ink-soft); font-weight: 700; }
+    .pill { border-radius: 999px; padding: 2px 8px; background: var(--mint); color: var(--emerald-deep); font-weight: 700; }
+    @media (max-width: 860px) {
+      .hero, .steps, .roles, .accounts, .cards { grid-template-columns: 1fr; }
+      header nav a.hide-sm { display: none; }
+      h1 { font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <a class="brand" href="#top">
+        <span class="mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M4 13a8 8 0 0 1 16 0"></path>
+            <path d="M8.5 13v3.5a1.5 1.5 0 0 0 3 0V13"></path>
+            <path d="M15.5 13v2a1.5 1.5 0 0 0 3 0v-2"></path>
+          </svg>
+        </span>
+        <span>
+          <strong>ألو المعلم</strong>
+          <span data-i18n="tagline">سوق الخدمات المحلية الموثوقة في المغرب</span>
+        </span>
+      </a>
+      <nav>
+        <a class="hide-sm" href="#tour" data-i18n="navTour">المعاينة</a>
+        <a class="hide-sm" href="#flow" data-i18n="navFlow">كيف تشتغل</a>
+        <a class="hide-sm" href="#accounts" data-i18n="navDemo">حسابات التجربة</a>
+        <a href="https://github.com/moustaphabouzianne95-boop/alo-maalm">GitHub</a>
+        <div class="lang" role="group" aria-label="Language">
+          <button type="button" data-lang="ar" aria-pressed="true">ع</button>
+          <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top" class="wrap">
+    <section class="hero">
+      <div>
+        <div class="kicker" data-i18n="kicker">معاينة الواجهة · ليست بيانات حية</div>
+        <h1 data-i18n="title">لقِي المعلم المناسب لخدمتك</h1>
+        <p class="lede" data-i18n="lede">اكتشف مهنيين موثوقين في مدينتك، قارن العروض بالدرهم، واحجز خدمتك. هذه الصفحة تعرض شكل المنتج. التطبيق الكامل يعمل محلياً مع قاعدة البيانات.</p>
+        <div class="actions">
+          <a class="solid" href="#tour" data-i18n="ctaView">شاهد الشاشات</a>
+          <a class="ghost" href="https://github.com/moustaphabouzianne95-boop/alo-maalm#readme" data-i18n="ctaReadme">اقرأ README</a>
+        </div>
+        <ul class="trust">
+          <li data-i18n="t1">معلمون موثقون</li>
+          <li data-i18n="t2">عروض بالدرهم</li>
+          <li data-i18n="t3">الدفع بين الطرفين</li>
+        </ul>
+      </div>
+      <div class="stage" aria-hidden="true">
+        <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url">alomaalem.ma</div></div>
+        <div class="screen">
+          <div class="search"><div data-i18n="searchPh">سباك في وجدة</div><b data-i18n="search">بحث</b></div>
+          <div class="chips"><span class="chip">سباك</span><span class="chip">كهربائي</span><span class="chip">صباغة</span><span class="chip">نجارة</span></div>
+          <div class="cards">
+            <article class="card">
+              <div class="row"><div class="avatar" style="background:#2E86C1">هـ</div><div><strong>هشام العمراني</strong><div class="meta">وجدة · سباكة</div></div><span class="badge">موثّق</span></div>
+              <h3>إصلاح تسرب المطبخ</h3>
+              <div class="meta">★★★★★ 4.9 · 38 خدمة</div>
+              <div class="price">250 MAD</div>
+            </article>
+            <article class="card">
+              <div class="row"><div class="avatar" style="background:#8E44AD">ي</div><div><strong>يوسف الإدريسي</strong><div class="meta">وجدة · صباغة</div></div><span class="badge">موثّق</span></div>
+              <h3>صباغة غرفة النوم</h3>
+              <div class="meta">★★★★☆ 4.7 · 21 خدمة</div>
+              <div class="price">800 MAD</div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tour">
+      <h2 data-i18n="tourTitle">شاشات المنتج</h2>
+      <p class="sub" data-i18n="tourSub">تنقّل بين الواجهات كما يراها الزبون، المعلم، والمشرف. الأرقام هنا للعرض فقط.</p>
+      <div class="screens" role="tablist">
+        <button type="button" data-screen="home" aria-pressed="true" data-i18n="tabHome">الرئيسية</button>
+        <button type="button" data-screen="offers" aria-pressed="false" data-i18n="tabOffers">العروض</button>
+        <button type="button" data-screen="booking" aria-pressed="false" data-i18n="tabBooking">الحجز</button>
+        <button type="button" data-screen="admin" aria-pressed="false" data-i18n="tabAdmin">الإدارة</button>
+      </div>
+      <div class="stage">
+        <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url" id="screen-url">/services</div></div>
+        <div class="screen">
+          <div class="panel active" id="panel-home">
+            <div class="chips"><span class="chip">كهربائي</span><span class="chip">سباك</span><span class="chip">بناء وطرش</span><span class="chip">نجارة</span><span class="chip">تكييف</span></div>
+            <div class="cards">
+              <article class="card"><h3>تركيب مكيف سبليت</h3><p class="meta">فاس · متاح اليوم</p><div class="price">1 200 MAD</div></article>
+              <article class="card"><h3>باب خشبي حسب المقاس</h3><p class="meta">الدار البيضاء · نجارة</p><div class="price">900 MAD</div></article>
+              <article class="card"><h3>إصلاح قاطع كهربائي</h3><p class="meta">طنجة · زيارة عاجلة</p><div class="price">180 MAD</div></article>
+              <article class="card"><h3>تبليط الممر</h3><p class="meta">مراكش · بناء وطرش</p><div class="price">650 MAD</div></article>
+            </div>
+          </div>
+          <div class="panel" id="panel-offers">
+            <h3 style="margin:0" data-i18n="reqTitle">إصلاح تسرب في المطبخ — وجدة</h3>
+            <p class="meta" data-i18n="reqMeta">طلب مفتوح · ميزانية 300–500 MAD · عرضان</p>
+            <div class="offer pick">
+              <div><strong>هشام العمراني</strong><div class="meta" data-i18n="offerA">غداً 09:00–12:00 · يشمل المعاينة</div></div>
+              <div><div class="price">450 MAD</div><span class="chip" data-i18n="accept">قبول العرض</span></div>
+            </div>
+            <div class="offer">
+              <div><strong>معلم آخر</strong><div class="meta" data-i18n="offerB">يُغلق تلقائياً عند قبول العرض الأول</div></div>
+              <div class="price">390 MAD</div>
+            </div>
+          </div>
+          <div class="panel" id="panel-booking">
+            <h3 style="margin:0" data-i18n="bookTitle">حجز BKG-7F3A2B</h3>
+            <p class="meta">450 MAD · حي لازاري، وجدة</p>
+            <div class="timeline">
+              <div class="tl"><i></i><span data-i18n="s1">تم قبول العرض وإنشاء الحجز</span></div>
+              <div class="tl"><i></i><span data-i18n="s2">المعلم يؤكد الموعد</span></div>
+              <div class="tl"><i></i><span data-i18n="s3">العمل قيد الإنجاز</span></div>
+              <div class="tl wait"><i></i><span data-i18n="s4">الزبون فقط يؤكّد الاكتمال ثم يقيّم</span></div>
+            </div>
+          </div>
+          <div class="panel" id="panel-admin">
+            <table>
+              <thead><tr><th data-i18n="colUser">المستخدم</th><th data-i18n="colRole">الدور</th><th data-i18n="colStatus">الحالة</th></tr></thead>
+              <tbody>
+                <tr><td>admin@alomaalem.ma</td><td>ADMIN</td><td><span class="pill">ACTIVE</span></td></tr>
+                <tr><td>customer@alomaalem.ma</td><td>CUSTOMER</td><td><span class="pill">ACTIVE</span></td></tr>
+                <tr><td>professional@alomaalem.ma</td><td>PROFESSIONAL</td><td><span class="pill">VERIFIED</span></td></tr>
+              </tbody>
+            </table>
+            <p class="meta" data-i18n="adminNote">الإجراءات الحساسة في التطبيق الحقيقي تطلب تأكيداً وتُسجَّل في سجل العمليات.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2 data-i18n="flowTitle">كيف تشتغل المنصة</h2>
+      <p class="sub" data-i18n="flowSub">من الطلب إلى التقييم. قبول العرض معاملة واحدة: حجز واحد، وبقية العروض تُرفض.</p>
+      <div class="steps">
+        <article class="step"><div class="num">1</div><h3 data-i18n="f1">اطلب الخدمة</h3><p data-i18n="f1b">صف العمل والمدينة والميزانية.</p></article>
+        <article class="step"><div class="num">2</div><h3 data-i18n="f2">استقبل العروض</h3><p data-i18n="f2b">أسعار بالدرهم وموعد مقترح.</p></article>
+        <article class="step"><div class="num">3</div><h3 data-i18n="f3">اقبل عرضاً واحداً</h3><p data-i18n="f3b">السعر يُؤخذ من العرض المخزَّن.</p></article>
+        <article class="step"><div class="num">4</div><h3 data-i18n="f4">تابع الحجز</h3><p data-i18n="f4b">المعلم يبدأ، والزبون يختم.</p></article>
+        <article class="step"><div class="num">5</div><h3 data-i18n="f5">قيّم بعد الإتمام</h3><p data-i18n="f5b">تقييم واحد لكل حجز مكتمل.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="rolesTitle">ثلاثة أدوار</h2>
+      <div class="roles">
+        <article class="role"><h3 data-i18n="r1">الزبون</h3><p data-i18n="r1b">ينشر الطلب، يقارن العروض، ويقيّم بعد اكتمال العمل.</p></article>
+        <article class="role"><h3 data-i18n="r2">المعلم</h3><p data-i18n="r2b">يعرض خدماته، يرسل عروضاً، ولا يستطيع إغلاق الحجز بنفسه.</p></article>
+        <article class="role"><h3 data-i18n="r3">المشرف</h3><p data-i18n="r3b">لا يُنشأ من صفحة التسجيل. يدير المستخدمين والبلاغات والسجل.</p></article>
+      </div>
+    </section>
+
+    <section id="accounts">
+      <h2 data-i18n="accTitle">حسابات التجربة</h2>
+      <p class="sub" data-i18n="accSub">كلمة المرور للتطوير فقط، بعد تشغيل البذرة. ليست كلمة سر إنتاج.</p>
+      <div class="accounts">
+        <article class="account"><h3>Admin</h3><p>/admin</p><code>admin@alomaalem.ma</code></article>
+        <article class="account"><h3>Customer</h3><p>/dashboard</p><code>customer@alomaalem.ma</code></article>
+        <article class="account"><h3>Professional</h3><p>/professional</p><code>professional@alomaalem.ma</code></article>
+      </div>
+      <p class="note" style="margin-top:12px"><span data-i18n="passLabel">كلمة مرور التطوير:</span> <strong dir="ltr">Demo@12345</strong></p>
+    </section>
+  </main>
+  <footer class="wrap">
+    <div>ألو المعلم · Alo Maalem</div>
+    <div data-i18n="foot">معاينة ثابتة للواجهة. التطبيق التفاعلي في المستودع ويحتاج PostgreSQL.</div>
+  </footer>
+  <script>
+    const copy = {
+      ar: {
+        tagline: "سوق الخدمات المحلية الموثوقة في المغرب",
+        navTour: "المعاينة", navFlow: "كيف تشتغل", navDemo: "حسابات التجربة",
+        kicker: "معاينة الواجهة · ليست بيانات حية",
+        title: "لقِي المعلم المناسب لخدمتك",
+        lede: "اكتشف مهنيين موثوقين في مدينتك، قارن العروض بالدرهم، واحجز خدمتك. هذه الصفحة تعرض شكل المنتج. التطبيق الكامل يعمل محلياً مع قاعدة البيانات.",
+        ctaView: "شاهد الشاشات", ctaReadme: "اقرأ README",
+        t1: "معلمون موثقون", t2: "عروض بالدرهم", t3: "الدفع بين الطرفين",
+        searchPh: "سباك في وجدة", search: "بحث",
+        tourTitle: "شاشات المنتج", tourSub: "تنقّل بين الواجهات كما يراها الزبون، المعلم، والمشرف. الأرقام هنا للعرض فقط.",
+        tabHome: "الرئيسية", tabOffers: "العروض", tabBooking: "الحجز", tabAdmin: "الإدارة",
+        reqTitle: "إصلاح تسرب في المطبخ — وجدة", reqMeta: "طلب مفتوح · ميزانية 300–500 MAD · عرضان",
+        offerA: "غداً 09:00–12:00 · يشمل المعاينة", offerB: "يُغلق تلقائياً عند قبول العرض الأول", accept: "قبول العرض",
+        bookTitle: "حجز BKG-7F3A2B",
+        s1: "تم قبول العرض وإنشاء الحجز", s2: "المعلم يؤكد الموعد", s3: "العمل قيد الإنجاز", s4: "الزبون فقط يؤكّد الاكتمال ثم يقيّم",
+        colUser: "المستخدم", colRole: "الدور", colStatus: "الحالة",
+        adminNote: "الإجراءات الحساسة في التطبيق الحقيقي تطلب تأكيداً وتُسجَّل في سجل العمليات.",
+        flowTitle: "كيف تشتغل المنصة", flowSub: "من الطلب إلى التقييم. قبول العرض معاملة واحدة: حجز واحد، وبقية العروض تُرفض.",
+        f1: "اطلب الخدمة", f1b: "صف العمل والمدينة والميزانية.",
+        f2: "استقبل العروض", f2b: "أسعار بالدرهم وموعد مقترح.",
+        f3: "اقبل عرضاً واحداً", f3b: "السعر يُؤخذ من العرض المخزَّن.",
+        f4: "تابع الحجز", f4b: "المعلم يبدأ، والزبون يختم.",
+        f5: "قيّم بعد الإتمام", f5b: "تقييم واحد لكل حجز مكتمل.",
+        rolesTitle: "ثلاثة أدوار",
+        r1: "الزبون", r1b: "ينشر الطلب، يقارن العروض، ويقيّم بعد اكتمال العمل.",
+        r2: "المعلم", r2b: "يعرض خدماته، يرسل عروضاً، ولا يستطيع إغلاق الحجز بنفسه.",
+        r3: "المشرف", r3b: "لا يُنشأ من صفحة التسجيل. يدير المستخدمين والبلاغات والسجل.",
+        accTitle: "حسابات التجربة", accSub: "كلمة المرور للتطوير فقط، بعد تشغيل البذرة. ليست كلمة سر إنتاج.",
+        passLabel: "كلمة مرور التطوير:",
+        foot: "معاينة ثابتة للواجهة. التطبيق التفاعلي في المستودع ويحتاج PostgreSQL."
+      },
+      fr: {
+        tagline: "La place de marché marocaine des professionnels de confiance",
+        navTour: "Aperçu", navFlow: "Parcours", navDemo: "Comptes démo",
+        kicker: "Aperçu de l'interface · pas des données live",
+        title: "Trouvez le bon maalem pour votre travail",
+        lede: "Comparez des offres en MAD et réservez un professionnel de votre ville. Cette page montre le produit. L'application complète tourne en local avec PostgreSQL.",
+        ctaView: "Voir les écrans", ctaReadme: "Lire le README",
+        t1: "Maalems vérifiés", t2: "Offres en MAD", t3: "Paiement entre les parties",
+        searchPh: "Plombier à Oujda", search: "Chercher",
+        tourTitle: "Écrans du produit", tourSub: "Client, professionnel et admin. Les montants sont illustratifs.",
+        tabHome: "Accueil", tabOffers: "Offres", tabBooking: "Réservation", tabAdmin: "Admin",
+        reqTitle: "Fuite dans la cuisine — Oujda", reqMeta: "Demande ouverte · budget 300–500 MAD · 2 offres",
+        offerA: "Demain 09:00–12:00 · visite comprise", offerB: "Fermée automatiquement si l'autre offre est acceptée", accept: "Accepter",
+        bookTitle: "Réservation BKG-7F3A2B",
+        s1: "Offre acceptée, réservation créée", s2: "Le maalem confirme le créneau", s3: "Travail en cours", s4: "Seul le client peut terminer, puis noter",
+        colUser: "Compte", colRole: "Rôle", colStatus: "Statut",
+        adminNote: "Les actions sensibles demandent une confirmation et vont dans le journal d'audit.",
+        flowTitle: "Comment ça marche", flowSub: "Une seule offre acceptée, dans une transaction. Les autres sont refusées.",
+        f1: "Décrire le besoin", f1b: "Travail, ville et budget.",
+        f2: "Recevoir les offres", f2b: "Prix en MAD et créneau.",
+        f3: "Accepter une offre", f3b: "Le prix vient de l'offre enregistrée.",
+        f4: "Suivre la réservation", f4b: "Le maalem démarre, le client clôt.",
+        f5: "Noter après coup", f5b: "Un avis par réservation terminée.",
+        rolesTitle: "Trois rôles",
+        r1: "Client", r1b: "Publie, compare, et note une fois le travail terminé.",
+        r2: "Maalem", r2b: "Propose ses services. Il ne peut pas clôturer lui-même.",
+        r3: "Admin", r3b: "Jamais créé à l'inscription. Modération, signalements, audit.",
+        accTitle: "Comptes de démonstration", accSub: "Mot de passe de développement uniquement, après le seed. Pas un secret de production.",
+        passLabel: "Mot de passe de développement :",
+        foot: "Aperçu statique. L'application interactive est dans le dépôt et nécessite PostgreSQL."
+      },
+      en: {
+        tagline: "Morocco's marketplace for trusted local professionals",
+        navTour: "View", navFlow: "How it works", navDemo: "Demo accounts",
+        kicker: "Interface preview · not live data",
+        title: "Find the right maalem for your job",
+        lede: "Compare offers in MAD and book a professional in your city. This page is a view of the product. The full app runs locally with PostgreSQL.",
+        ctaView: "View the screens", ctaReadme: "Read the README",
+        t1: "Verified maalems", t2: "Offers in MAD", t3: "Cash between the parties",
+        searchPh: "Plumber in Oujda", search: "Search",
+        tourTitle: "Product screens", tourSub: "What the customer, professional, and admin see. Figures here are illustrative.",
+        tabHome: "Home", tabOffers: "Offers", tabBooking: "Booking", tabAdmin: "Admin",
+        reqTitle: "Kitchen leak repair — Oujda", reqMeta: "Open request · budget 300–500 MAD · 2 offers",
+        offerA: "Tomorrow 09:00–12:00 · visit included", offerB: "Closed automatically when the first offer is accepted", accept: "Accept offer",
+        bookTitle: "Booking BKG-7F3A2B",
+        s1: "Offer accepted and booking created", s2: "The professional confirms the slot", s3: "Work in progress", s4: "Only the customer can complete it, then review",
+        colUser: "User", colRole: "Role", colStatus: "Status",
+        adminNote: "Destructive admin actions in the real app ask for confirmation and are written to the audit log.",
+        flowTitle: "How the marketplace works", flowSub: "Accepting an offer is one transaction: one booking, competing offers rejected.",
+        f1: "Post the job", f1b: "Describe the work, city, and budget.",
+        f2: "Receive offers", f2b: "Prices in MAD and a proposed time.",
+        f3: "Accept one offer", f3b: "The price is copied from the stored offer.",
+        f4: "Track the booking", f4b: "The professional starts. The customer finishes.",
+        f5: "Review after completion", f5b: "One review per completed booking.",
+        rolesTitle: "Three roles",
+        r1: "Customer", r1b: "Posts a request, compares offers, and reviews after the job is done.",
+        r2: "Professional", r2b: "Lists services and sends offers. Cannot mark the job complete alone.",
+        r3: "Admin", r3b: "Cannot be chosen at signup. Moderates users, reports, and the audit log.",
+        accTitle: "Demo accounts", accSub: "Development password only, after seeding. Not a production secret.",
+        passLabel: "Development password:",
+        foot: "Static interface view. The interactive app lives in the repository and needs PostgreSQL."
+      }
+    };
+    const urls = { home: "/services", offers: "/dashboard/requests/REQ-7F3A", booking: "/dashboard/bookings/BKG-7F3A2B", admin: "/admin/users" };
+    function apply(lang) {
+      const pack = copy[lang] || copy.ar;
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+      document.querySelectorAll("[data-i18n]").forEach((node) => {
+        const value = pack[node.getAttribute("data-i18n")];
+        if (value) node.textContent = value;
+      });
+      document.querySelectorAll(".lang button").forEach((button) => {
+        button.setAttribute("aria-pressed", button.getAttribute("data-lang") === lang ? "true" : "false");
+      });
+      try { localStorage.setItem("alomaalem-view-lang", lang); } catch (e) {}
+    }
+    document.querySelectorAll(".lang button").forEach((button) => {
+      button.addEventListener("click", () => apply(button.getAttribute("data-lang")));
+    });
+    document.querySelectorAll(".screens button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const name = button.getAttribute("data-screen");
+        document.querySelectorAll(".screens button").forEach((item) => item.setAttribute("aria-pressed", item === button ? "true" : "false"));
+        document.querySelectorAll(".panel").forEach((panel) => panel.classList.toggle("active", panel.id === "panel-" + name));
+        document.getElementById("screen-url").textContent = urls[name] || "/";
+      });
+    });
+    let initial = "ar";
+    try { initial = localStorage.getItem("alomaalem-view-lang") || "ar"; } catch (e) {}
+    apply(copy[initial] ? initial : "ar");
+  </script>
+</body>
+</html>

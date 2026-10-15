@@ -4,6 +4,12 @@
 
 Alo Maalem is a production-shaped marketplace for local services in Morocco. Customers post a request, verified professionals send offers in MAD, and accepting one offer creates exactly one booking. Arabic (RTL) is the default interface; French and English are available.
 
+## View
+
+Open the product view (static, no database): **[ألو المعلم — view page](https://moustaphabouzianne95-boop.github.io/alo-maalm/)**.
+
+It shows the Arabic-first screens, the offer-accept flow, and the demo accounts. The interactive app — login, offers, bookings — still runs locally with `bash scripts/bootstrap.sh --dev`.
+
 ## Features
 
 - Three roles with server-side checks: customer, professional, admin. Admin cannot be chosen at registration.
