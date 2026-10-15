@@ -1,0 +1,1058 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// ألو المعلم · Alo Maalem — Prisma schema (PostgreSQL)
+//
+// Moroccan local-services marketplace.
+// Conventions:
+//   • UUID primary keys, `createdAt` / `updatedAt` on every table
+//   • Enum-backed status columns so invalid states are unrepresentable
+//   • Money stored as Integer MAD centimes-free whole dirhams (`Int`) to avoid
+//     float drift; `Decimal` reserved for commission math.
+//   • Indexes on every column used for filtering, sorting or joining.
+//   • No secrets, no plaintext credentials, no private phone numbers exposed
+//     through public read paths (see `server/services/*` projections).
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  PROFESSIONAL
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum VerificationMethod {
+  PHONE
+  EMAIL
+  MANUAL
+}
+
+enum DocumentType {
+  CIN
+  PASSPORT
+  BUSINESS_REGISTRATION
+  CERTIFICATE
+  INSURANCE
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PricingType {
+  FIXED
+  STARTING_FROM
+  HOURLY
+  CUSTOM_QUOTE
+}
+
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  HIDDEN
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BUSY
+  UNAVAILABLE
+}
+
+enum RequestStatus {
+  OPEN
+  RECEIVING_OFFERS
+  OFFER_SELECTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum Urgency {
+  NORMAL
+  URGENT
+  EMERGENCY
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+  WALLET
+  OTHER
+}
+
+enum CancellationParty {
+  CUSTOMER
+  PROFESSIONAL
+  ADMIN
+  SYSTEM
+}
+
+enum FavoriteTargetType {
+  SERVICE
+  PROFESSIONAL
+}
+
+enum ReportTargetType {
+  USER
+  PROFESSIONAL
+  SERVICE
+  REVIEW
+  REQUEST
+  OFFER
+  MESSAGE
+}
+
+enum ReportReason {
+  SPAM
+  FRAUD
+  INAPPROPRIATE
+  HARASSMENT
+  FAKE_PROFILE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  HIDDEN
+  UNDER_REVIEW
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+// NotificationType is a String column (not an enum) on purpose: adding a new
+// notification kind must not require a destructive DB migration.
+// Known values: NEW_REQUEST, NEW_OFFER, OFFER_ACCEPTED, OFFER_REJECTED,
+// NEW_MESSAGE, BOOKING_CREATED, BOOKING_CONFIRMED, BOOKING_STARTED,
+// BOOKING_COMPLETED, BOOKING_CANCELLED, REVIEW_RECEIVED, ACCOUNT_VERIFIED,
+// ACCOUNT_SUSPENDED, REPORT_RESOLVED, SYSTEM
+
+enum Locale {
+  AR
+  FR
+  EN
+}
+
+// ─── Identity ────────────────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique
+  /// E.164-normalised Moroccan number, e.g. +212612345678. Unique so an
+  /// account cannot be duplicated by phone.
+  phone         String     @unique
+  passwordHash  String     @map("password_hash")
+  role          Role       @default(CUSTOMER)
+  status        UserStatus @default(ACTIVE)
+  emailVerified DateTime?  @map("email_verified")
+  phoneVerified DateTime?  @map("phone_verified")
+  locale        Locale     @default(AR)
+  lastLoginAt   DateTime?  @map("last_login_at")
+  /// Soft flag used by admin moderation and the "delete my account" flow.
+  deletedAt     DateTime?  @map("deleted_at")
+
+  identity            Profile?
+  professionalProfile ProfessionalProfile?
+  customerProfile     CustomerProfile?
+  services            Service[]                 @relation("ServiceOwner")
+  serviceRequests     ServiceRequest[]
+  offersMade          Offer[]                   @relation("OfferProfessional")
+  bookingsAsCustomer  Booking[]                 @relation("BookingCustomer")
+  bookingsAsPro       Booking[]                 @relation("BookingProfessional")
+  reviewsWritten      Review[]                  @relation("ReviewAuthor")
+  messages            Message[]
+  conversationLinks   ConversationParticipant[]
+  notifications       Notification[]
+  reportsFiled        Report[]                  @relation("ReportReporter")
+  reportsAbout        Report[]                  @relation("ReportSubject")
+  reportsAssigned     Report[]                  @relation("ReportAssignee")
+  reportsResolved     Report[]                  @relation("ReportResolver")
+  documents           VerificationDocument[]
+  sessions            Session[]
+  passwordResets      PasswordResetToken[]
+  emailVerifications  EmailVerificationToken[]
+  auditLogs           AuditLog[]                @relation("AuditActor")
+  auditTargets        AuditLog[]                @relation("AuditTarget")
+
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  favorites Favorite[]
+
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+  @@index([role, status])
+  @@map("users")
+}
+
+/// Role-agnostic identity record, created for *every* user at registration.
+/// Kept out of `User` so the credential table stays small and so public
+/// projections can include `profile` without ever touching `passwordHash`.
+model Profile {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @unique @map("user_id") @db.Uuid
+  firstName String  @map("first_name")
+  lastName  String  @map("last_name")
+  /// Cached full name used for search + display (kept in sync on update).
+  fullName  String  @map("full_name")
+  avatarUrl String? @map("avatar_url")
+  city      String?
+  address   String?
+  bio       String? @db.Text
+  /// Free-form, future-ready key/value bag (e.g. onboarding answers).
+  fields    Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([city])
+  @@index([fullName])
+  @@map("profiles")
+}
+
+model CustomerProfile {
+  id                  String  @id @default(uuid()) @db.Uuid
+  userId              String  @unique @map("user_id") @db.Uuid
+  defaultCity         String? @map("default_city")
+  defaultNeighborhood String? @map("default_neighborhood")
+  defaultAddress      String? @map("default_address")
+  /// Marketing / operational opt-ins (future WhatsApp + SMS channels).
+  notifyByEmail       Boolean @default(true) @map("notify_by_email")
+  notifyByPhone       Boolean @default(false) @map("notify_by_phone")
+  notifyByWhatsapp    Boolean @default(false) @map("notify_by_whatsapp")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("customer_profiles")
+}
+
+model ProfessionalProfile {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  /// Public, SEO-friendly handle: /professionals/mohamed-alaoui
+  slug            String   @unique
+  businessName    String?  @map("business_name")
+  headline        String?
+  about           String?  @db.Text
+  avatarUrl       String?  @map("avatar_url")
+  coverUrl        String?  @map("cover_url")
+  city            String
+  neighborhood    String?
+  /// Service radius in kilometres around `city`.
+  serviceRadiusKm Int      @default(20) @map("service_radius_km")
+  /// Optional precise coordinates — powers future map/geolocation features.
+  latitude        Float?
+  longitude       Float?
+  yearsExperience Int      @default(0) @map("years_experience")
+  /// Public contact is opt-in: trust & safety rule §51.
+  phonePublic     Boolean  @default(false) @map("phone_public")
+  publicPhone     String?  @map("public_phone")
+  website         String?
+  languages       String[] @default([])
+
+  verificationStatus VerificationStatus  @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?           @map("verified_at")
+  verifiedBy         String?             @map("verified_by") @db.Uuid
+  verificationMethod VerificationMethod? @map("verification_method")
+  verificationNote   String?             @map("verification_note") @db.Text
+
+  availabilityStatus AvailabilityStatus @default(AVAILABLE) @map("availability_status")
+  /// Weekly availability template — `[{ "day": 1, "from": "09:00", "to": "18:00" }]`
+  availability       Json?
+  acceptsUrgentJobs  Boolean            @default(true) @map("accepts_urgent_jobs")
+
+  // Denormalised counters. Recomputed by `lib/stats/recompute.ts` and kept in
+  // sync inside the same transaction as the write that changes them, so the
+  // directory pages never need an aggregate join per card.
+  ratingAverage   Decimal @default(0) @map("rating_average") @db.Decimal(3, 2)
+  ratingCount     Int     @default(0) @map("rating_count")
+  completedJobs   Int     @default(0) @map("completed_jobs")
+  cancelledJobs   Int     @default(0) @map("cancelled_jobs")
+  responseRate    Int     @default(100) @map("response_rate")
+  /// Median first-response time in minutes.
+  responseTimeMin Int     @default(60) @map("response_time_min")
+  isFeatured      Boolean @default(false) @map("is_featured")
+  profileViews    Int     @default(0) @map("profile_views")
+
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services  Service[]
+  areas     ServiceArea[]
+  portfolio PortfolioItem[]
+  documents VerificationDocument[]
+  reviews   Review[]               @relation("ReviewSubjectProfile")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([city])
+  @@index([verificationStatus])
+  @@index([ratingAverage])
+  @@index([isFeatured])
+  @@index([createdAt])
+  @@map("professional_profiles")
+}
+
+/// Future-ready identity/document verification (CIN, business registration…).
+/// Not required by the MVP flow, but the table exists so admins can start
+/// collecting evidence without a schema change.
+model VerificationDocument {
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @map("user_id") @db.Uuid
+  professionalId  String?        @map("professional_id") @db.Uuid
+  type            DocumentType
+  status          DocumentStatus @default(PENDING)
+  /// Storage key/URL — never a raw file in the DB.
+  fileUrl         String         @map("file_url")
+  fileName        String?        @map("file_name")
+  mimeType        String?        @map("mime_type")
+  sizeBytes       Int?           @map("size_bytes")
+  /// Masked identifier, e.g. "BK••••••45" — the full value is never stored.
+  maskedNumber    String?        @map("masked_number")
+  reviewedById    String?        @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime?      @map("reviewed_at")
+  rejectionReason String?        @map("rejection_reason")
+  expiresAt       DateTime?      @map("expires_at")
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@map("verification_documents")
+}
+
+// ─── Catalogue ───────────────────────────────────────────────────────────────
+
+model Category {
+  id            String     @id @default(uuid()) @db.Uuid
+  slug          String     @unique
+  /// Localised display names. `name` is the Arabic default used in the UI.
+  name          String
+  nameFr        String?    @map("name_fr")
+  nameEn        String?    @map("name_en")
+  description   String?    @db.Text
+  descriptionFr String?    @map("description_fr") @db.Text
+  descriptionEn String?    @map("description_en") @db.Text
+  /// Lucide icon name, resolved on the client so no icon payload is stored.
+  icon          String     @default("Wrench")
+  imageUrl      String?    @map("image_url")
+  color         String     @default("#128758")
+  sortOrder     Int        @default(0) @map("sort_order")
+  isActive      Boolean    @default(true) @map("is_active")
+  /// Optional parent for future sub-category trees.
+  parentId      String?    @map("parent_id") @db.Uuid
+  parent        Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Category[] @relation("CategoryTree")
+
+  services        Service[]
+  serviceRequests ServiceRequest[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model Service {
+  id             String  @id @default(uuid()) @db.Uuid
+  /// Public SEO slug: /services/installation-climatisation-casablanca
+  slug           String  @unique
+  title          String
+  titleFr        String? @map("title_fr")
+  titleEn        String? @map("title_en")
+  description    String  @db.Text
+  descriptionFr  String? @map("description_fr") @db.Text
+  descriptionEn  String? @map("description_en") @db.Text
+  categoryId     String  @map("category_id") @db.Uuid
+  professionalId String  @map("professional_id") @db.Uuid
+  /// Denormalised owner (`ProfessionalProfile.userId`) so ownership checks and
+  /// "my services" queries never need to join through the profile row.
+  ownerUserId    String  @map("owner_user_id") @db.Uuid
+
+  status            ServiceStatus @default(DRAFT)
+  pricingType       PricingType   @default(STARTING_FROM) @map("pricing_type")
+  /// Whole dirhams (MAD). `priceMin` doubles as the "starting from" price.
+  priceMin          Int           @default(0) @map("price_min")
+  priceMax          Int?          @map("price_max")
+  currency          String        @default("MAD")
+  durationMin       Int?          @map("duration_min")
+  durationMax       Int?          @map("duration_max")
+  /// Human unit for duration display: HOUR | DAY | JOB
+  durationUnit      String        @default("HOUR") @map("duration_unit")
+  city              String
+  neighborhood      String?
+  coverImage        String?       @map("cover_image")
+  /// Free-form tags for search relevance ("تسرب", "climatisation", "dépannage")
+  keywords          String[]      @default([])
+  /// What the price includes, rendered as a checklist on the service page.
+  includes          String[]      @default([])
+  warrantyDays      Int           @default(0) @map("warranty_days")
+  isUrgentAvailable Boolean       @default(false) @map("is_urgent_available")
+
+  // Denormalised for card rendering + directory sorting without joins.
+  ratingAverage Decimal   @default(0) @map("rating_average") @db.Decimal(3, 2)
+  ratingCount   Int       @default(0) @map("rating_count")
+  viewsCount    Int       @default(0) @map("views_count")
+  requestsCount Int       @default(0) @map("requests_count")
+  isFeatured    Boolean   @default(false) @map("is_featured")
+  publishedAt   DateTime? @map("published_at")
+
+  category      Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  professional  ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  owner         User                @relation("ServiceOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  conversations Conversation[]      @relation("ServiceConversation")
+  images        ServiceImage[]
+  areas         ServiceArea[]
+  requests      ServiceRequest[]
+  offers        Offer[]
+  bookings      Booking[]
+  reviews       Review[]
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([professionalId])
+  @@index([ownerUserId])
+  @@index([status])
+  @@index([city])
+  @@index([priceMin])
+  @@index([ratingAverage])
+  @@index([createdAt])
+  @@index([status, city, categoryId])
+  @@index([status, categoryId, priceMin])
+  @@map("services")
+}
+
+model ServiceImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  serviceId String  @map("service_id") @db.Uuid
+  url       String
+  alt       String?
+  sortOrder Int     @default(0) @map("sort_order")
+  isCover   Boolean @default(false) @map("is_cover")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([serviceId])
+  @@map("service_images")
+}
+
+/// Geo rows: a professional may cover several cities/neighbourhoods.
+model ServiceArea {
+  id             String  @id @default(uuid()) @db.Uuid
+  professionalId String  @map("professional_id") @db.Uuid
+  serviceId      String? @map("service_id") @db.Uuid
+  city           String
+  neighborhood   String?
+  radiusKm       Int     @default(20) @map("radius_km")
+  /// Optional travel surcharge for out-of-city jobs (MAD).
+  travelFee      Int     @default(0) @map("travel_fee")
+  latitude       Float?
+  longitude      Float?
+  isPrimary      Boolean @default(false) @map("is_primary")
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  service      Service?            @relation(fields: [serviceId], references: [id])
+
+  @@unique([professionalId, serviceId, city, neighborhood])
+  @@index([city])
+  @@index([professionalId])
+  @@index([serviceId])
+  @@map("service_areas")
+}
+
+model PortfolioItem {
+  id             String    @id @default(uuid()) @db.Uuid
+  professionalId String    @map("professional_id") @db.Uuid
+  title          String
+  description    String?   @db.Text
+  imageUrl       String    @map("image_url")
+  city           String?
+  completedAt    DateTime? @map("completed_at")
+  sortOrder      Int       @default(0) @map("sort_order")
+  isPublic       Boolean   @default(true) @map("is_public")
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([professionalId])
+  @@map("portfolio_items")
+}
+
+// ─── Demand: requests → offers → bookings ────────────────────────────────────
+
+model ServiceRequest {
+  id              String        @id @default(uuid()) @db.Uuid
+  /// Public reference shown to customers & professionals: "REQ-7F3A2B".
+  reference       String        @unique
+  customerId      String        @map("customer_id") @db.Uuid
+  categoryId      String        @map("category_id") @db.Uuid
+  /// Optional anchor service the customer started from.
+  serviceId       String?       @map("service_id") @db.Uuid
+  title           String
+  description     String        @db.Text
+  city            String
+  neighborhood    String?
+  address         String?       @db.Text
+  budgetMin       Int?          @map("budget_min")
+  budgetMax       Int?          @map("budget_max")
+  currency        String        @default("MAD")
+  preferredDate   DateTime?     @map("preferred_date") @db.Date
+  /// "09:00-12:00" style window — avoids timezone traps of a full timestamp.
+  preferredTime   String?       @map("preferred_time")
+  urgency         Urgency       @default(NORMAL)
+  status          RequestStatus @default(OPEN)
+  /// How many professionals may submit an offer before the request auto-closes.
+  maxOffers       Int           @default(10) @map("max_offers")
+  offersCount     Int           @default(0) @map("offers_count")
+  viewsCount      Int           @default(0) @map("views_count")
+  /// Requests auto-expire; a scheduled job flips status to EXPIRED.
+  expiresAt       DateTime?     @map("expires_at")
+  closedAt        DateTime?     @map("closed_at")
+  cancelledReason String?       @map("cancelled_reason") @db.Text
+  /// Accepted offer / resulting booking, denormalised for list rendering.
+  selectedOfferId String?       @map("selected_offer_id") @db.Uuid
+  bookingId       String?       @map("booking_id") @db.Uuid
+
+  customer      User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images        RequestImage[]
+  conversations Conversation[] @relation("RequestConversation")
+  offers        Offer[]        @relation("RequestOffers")
+  bookings      Booking[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([customerId])
+  @@index([categoryId])
+  @@index([city])
+  @@index([status])
+  @@index([urgency])
+  @@index([createdAt])
+  @@index([status, city, categoryId])
+  @@index([status, createdAt])
+  @@map("service_requests")
+}
+
+model RequestImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  requestId String  @map("request_id") @db.Uuid
+  url       String
+  alt       String?
+  sortOrder Int     @default(0) @map("sort_order")
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([requestId])
+  @@map("request_images")
+}
+
+model Offer {
+  id                    String      @id @default(uuid()) @db.Uuid
+  reference             String      @unique
+  requestId             String      @map("request_id") @db.Uuid
+  /// The professional *user* id (authorisation is checked against `User`).
+  professionalId        String      @map("professional_id") @db.Uuid
+  /// The professional *profile* id, denormalised for display & analytics.
+  professionalProfileId String?     @map("professional_profile_id") @db.Uuid
+  /// Optional link to the service the offer is based on.
+  serviceId             String?     @map("service_id") @db.Uuid
+  price                 Int
+  currency              String      @default("MAD")
+  message               String      @db.Text
+  notes                 String?     @db.Text
+  durationMin           Int?        @map("duration_min")
+  /// Proposed start, stored as date + time window to match the request shape.
+  proposedDate          DateTime?   @map("proposed_date") @db.Date
+  proposedTime          String?     @map("proposed_time")
+  status                OfferStatus @default(PENDING)
+  isValidUntil          DateTime?   @map("is_valid_until")
+  viewedAt              DateTime?   @map("viewed_at")
+  respondedAt           DateTime?   @map("responded_at")
+  decidedById           String?     @map("decided_by_id") @db.Uuid
+  decidedAt             DateTime?   @map("decided_at")
+
+  request      ServiceRequest @relation("RequestOffers", fields: [requestId], references: [id], onDelete: Cascade)
+  professional User           @relation("OfferProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
+  booking      Booking?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  /// One offer per professional per request.
+  @@unique([requestId, professionalId])
+  @@index([requestId])
+  @@index([professionalId])
+  @@index([status])
+  @@index([price])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@map("offers")
+}
+
+model Booking {
+  id             String        @id @default(uuid()) @db.Uuid
+  /// Human reference: "BKG-9C1D4E".
+  reference      String        @unique
+  customerId     String        @map("customer_id") @db.Uuid
+  professionalId String        @map("professional_id") @db.Uuid
+  requestId      String        @map("request_id") @db.Uuid
+  offerId        String        @unique @map("offer_id") @db.Uuid
+  serviceId      String?       @map("service_id") @db.Uuid
+  title          String
+  status         BookingStatus @default(PENDING)
+  scheduledDate  DateTime      @map("scheduled_date") @db.Date
+  scheduledTime  String        @map("scheduled_time")
+  city           String
+  neighborhood   String?
+  address        String        @db.Text
+  notes          String?       @db.Text
+  price          Int
+  currency       String        @default("MAD")
+  durationMin    Int?          @map("duration_min")
+
+  startedAt          DateTime?          @map("started_at")
+  confirmedAt        DateTime?          @map("confirmed_at")
+  completedAt        DateTime?          @map("completed_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  cancelledBy        CancellationParty? @map("cancelled_by")
+  cancellationReason String?            @map("cancellation_reason") @db.Text
+
+  // ── Payments (future-ready, NOT processed in the MVP) ──
+  paymentStatus   PaymentStatus  @default(UNPAID) @map("payment_status")
+  paymentMethod   PaymentMethod? @map("payment_method")
+  /// The MVP is cash-between-parties; these stay null until payments launch.
+  paidAt          DateTime?      @map("paid_at")
+  platformFee     Decimal?       @map("platform_fee") @db.Decimal(10, 2)
+  professionalNet Decimal?       @map("professional_net") @db.Decimal(10, 2)
+  paymentRef      String?        @map("payment_ref")
+  escrowStatus    String?        @map("escrow_status")
+
+  customer      User                   @relation("BookingCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  professional  User                   @relation("BookingProfessional", fields: [professionalId], references: [id], onDelete: Restrict)
+  request       ServiceRequest         @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  offer         Offer                  @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  review        Review?
+  conversation  Conversation?          @relation("BookingConversation")
+  statusHistory BookingStatusHistory[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([customerId])
+  @@index([professionalId])
+  @@index([requestId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([paymentStatus])
+  @@index([requestId, status])
+  @@index([createdAt])
+  @@index([status, scheduledDate])
+  @@index([customerId, status])
+  @@index([professionalId, status])
+  @@map("bookings")
+}
+
+/// Append-only audit trail of booking state transitions — makes invalid
+/// transitions debuggable and powers the "performance" analytics.
+model BookingStatusHistory {
+  id        String         @id @default(uuid()) @db.Uuid
+  bookingId String         @map("booking_id") @db.Uuid
+  from      BookingStatus?
+  to        BookingStatus
+  changedBy String         @map("changed_by") @db.Uuid
+  reason    String?        @db.Text
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([bookingId])
+  @@index([createdAt])
+  @@map("booking_status_history")
+}
+
+// ─── Messaging ───────────────────────────────────────────────────────────────
+
+model Conversation {
+  id                 String    @id @default(uuid()) @db.Uuid
+  /// Deterministic key so "start conversation" is idempotent for a pair of
+  /// users around the same context: `u:<sortedUserIdA>:<sortedUserIdB>[:<ctx>]`
+  conversationKey    String    @unique @map("conversation_key")
+  customerId         String    @map("customer_id") @db.Uuid
+  professionalId     String    @map("professional_id") @db.Uuid
+  /// Optional context the conversation was opened from.
+  requestId          String?   @map("request_id") @db.Uuid
+  /// A booking owns exactly one thread, so this side is unique (1:1).
+  bookingId          String?   @unique @map("booking_id") @db.Uuid
+  serviceId          String?   @map("service_id") @db.Uuid
+  subject            String?
+  lastMessageAt      DateTime? @map("last_message_at")
+  lastMessagePreview String?   @map("last_message_preview") @db.Text
+  isActive           Boolean   @default(true) @map("is_active")
+
+  participants ConversationParticipant[]
+  messages     Message[]
+  request      ServiceRequest?           @relation("RequestConversation", fields: [requestId], references: [id], onDelete: SetNull)
+  booking      Booking?                  @relation("BookingConversation", fields: [bookingId], references: [id], onDelete: SetNull)
+  service      Service?                  @relation("ServiceConversation", fields: [serviceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([professionalId])
+  @@index([lastMessageAt])
+  @@index([requestId])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id                String    @id @default(uuid()) @db.Uuid
+  conversationId    String    @map("conversation_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  role              Role
+  /// Per-participant read cursor — powers unread counters without scanning.
+  lastReadAt        DateTime? @map("last_read_at")
+  lastReadMessageId String?   @map("last_read_message_id") @db.Uuid
+  isMuted           Boolean   @default(false) @map("is_muted")
+  unreadCount       Int       @default(0) @map("unread_count")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String        @id @default(uuid()) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  senderId       String        @map("sender_id") @db.Uuid
+  body           String        @db.Text
+  status         MessageStatus @default(SENT)
+  /// Attachments-ready: `[{ url, name, mimeType, sizeBytes }]`
+  attachments    Json?
+  /// Client-generated id so optimistic sends can be reconciled.
+  clientId       String?       @map("client_id")
+  editedAt       DateTime?     @map("edited_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  readAt         DateTime?     @map("read_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([conversationId, clientId])
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// ─── Trust: reviews, favorites, notifications, reports ───────────────────────
+
+model Review {
+  id             String       @id @default(uuid()) @db.Uuid
+  /// One review per completed booking — enforced at the DB level.
+  bookingId      String       @unique @map("booking_id") @db.Uuid
+  /// Author is always the customer of the booking.
+  authorId       String       @map("author_id") @db.Uuid
+  professionalId String       @map("professional_id") @db.Uuid
+  serviceId      String?      @map("service_id") @db.Uuid
+  rating         Int
+  comment        String?      @db.Text
+  /// Structured sub-scores, future-ready: { punctuality, quality, communication }
+  subRatings     Json?        @map("sub_ratings")
+  status         ReviewStatus @default(PUBLISHED)
+  isEdited       Boolean      @default(false) @map("is_edited")
+  /// Reviews lock after this window (business rule §19).
+  editableUntil  DateTime?    @map("editable_until")
+  helpfulCount   Int          @default(0) @map("helpful_count")
+  /// Professional reply — a first-class field, not a nested review.
+  reply          String?      @db.Text
+  repliedAt      DateTime?    @map("replied_at")
+  hiddenReason   String?      @map("hidden_reason")
+  moderatedById  String?      @map("moderated_by_id") @db.Uuid
+  moderatedAt    DateTime?    @map("moderated_at")
+
+  booking      Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  author       User                @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation("ReviewSubjectProfile", fields: [professionalId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  service      Service?            @relation(fields: [serviceId], references: [id])
+
+  @@index([professionalId])
+  @@index([authorId])
+  @@index([rating])
+  @@index([status])
+  @@index([createdAt])
+  @@index([professionalId, status, createdAt])
+  @@map("reviews")
+}
+
+model Favorite {
+  id         String             @id @default(uuid()) @db.Uuid
+  userId     String             @map("user_id") @db.Uuid
+  targetType FavoriteTargetType @map("target_type")
+  /// Polymorphic target id — a `services.id` when targetType is SERVICE and a
+  /// `professional_profiles.id` when it is PROFESSIONAL. Deliberately *not* a
+  /// foreign key: a single column cannot point at two tables, and a FK here
+  /// would reject every professional favorite. Targets are resolved in
+  /// `server/favorites/service.ts` with two indexed queries.
+  targetId   String             @map("target_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+  @@index([targetType, targetId])
+  @@map("favorites")
+}
+
+model Notification {
+  id       String    @id @default(uuid()) @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  /// String, not enum — new kinds need no migration (see enum comment above).
+  type     String
+  title    String
+  body     String?   @db.Text
+  /// Payload for deep-linking + rendering: { requestId, offerId, bookingId … }
+  data     Json?
+  linkTo   String?   @map("link_to")
+  isRead   Boolean   @default(false) @map("is_read")
+  readAt   DateTime? @map("read_at")
+  /// Delivery channels are recorded so email/push can be layered on later
+  /// without changing the read model: { inApp: true, email: "queued" }
+  channels Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model Report {
+  id            String           @id @default(uuid()) @db.Uuid
+  reference     String           @unique
+  reporterId    String           @map("reporter_id") @db.Uuid
+  targetType    ReportTargetType @map("target_type")
+  /// Id of the reported *item* (service, review, request, offer, message…).
+  targetId      String           @map("target_id") @db.Uuid
+  /// Resolved account behind that item so moderators can act on it directly.
+  /// Nullable: the account may already be gone when the report is reviewed.
+  subjectUserId String?          @map("subject_user_id") @db.Uuid
+  reason        ReportReason
+  details       String?          @db.Text
+  /// Reporter-supplied evidence URLs.
+  evidence      String[]         @default([])
+  status        ReportStatus     @default(OPEN)
+  priority      Int              @default(0)
+  assignedToId  String?          @map("assigned_to_id") @db.Uuid
+  resolution    String?          @db.Text
+  resolvedById  String?          @map("resolved_by_id") @db.Uuid
+  resolvedAt    DateTime?        @map("resolved_at")
+  /// Action taken as a result (suspension, removal…) for the audit trail.
+  actionTaken   String?          @map("action_taken")
+
+  reporter   User  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  subject    User? @relation("ReportSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  assignedTo User? @relation("ReportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  resolvedBy User? @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status])
+  @@index([targetType, targetId])
+  @@index([subjectUserId])
+  @@index([createdAt])
+  @@index([reporterId])
+  @@map("reports")
+}
+
+// ─── Auth primitives ─────────────────────────────────────────────────────────
+
+/// Server-side session store. Tokens are stateless (signed JWT in a cookie)
+/// but a row per session enables instant revocation on logout/suspension.
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent") @db.Text
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  /// Brute-force guard: attempts against a single token.
+  attempts  Int       @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+/// Admin action audit log — required for accountable moderation.
+model AuditLog {
+  id           String  @id @default(uuid()) @db.Uuid
+  actorId      String? @map("actor_id") @db.Uuid
+  action       String
+  /// USER | PROFESSIONAL | SERVICE | REQUEST | OFFER | BOOKING | REVIEW | REPORT
+  targetType   String  @map("target_type")
+  /// Polymorphic id of the acted-upon row. Not a foreign key: it may point at
+  /// services, bookings, reports… which a single FK column cannot express.
+  targetId     String? @map("target_id") @db.Uuid
+  /// When the action concerned an *account*, this is the user it concerned.
+  /// Separate column so it can be a real, enforced relation.
+  targetUserId String? @map("target_user_id") @db.Uuid
+  /// Snapshot of the change: { before, after, reason }
+  metadata     Json?
+  ipAddress    String? @map("ip_address")
+
+  actor  User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  target User? @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

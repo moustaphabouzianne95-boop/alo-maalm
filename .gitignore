@@ -1,0 +1,24 @@
+# Dependencies and build output
+node_modules
+.next
+out
+dist
+coverage
+tsconfig.tsbuildinfo
+
+# Secrets — commit .env.example only
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Local uploads (the local storage provider writes here)
+public/uploads
+!public/uploads/.gitkeep
+
+# Logs and OS noise
+*.log
+.DS_Store
+
+# Accidental Next error dumps (a root file named POST is not a route)
+/POST
