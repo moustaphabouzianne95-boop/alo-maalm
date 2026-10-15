@@ -22,3 +22,6 @@ public/uploads
 
 # Accidental Next error dumps (a root file named POST is not a route)
 /POST
+
+# Vercel link metadata (project id). Never commit tokens.
+.vercel

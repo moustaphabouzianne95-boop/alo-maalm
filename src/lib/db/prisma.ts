@@ -12,11 +12,22 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+/**
+ * Serverless hosts open one pool per instance. Cap it on Vercel so a traffic
+ * spike cannot exhaust Postgres `max_connections`. A pooled Neon/Vercel URL
+ * already includes this and is left untouched.
+ */
+function databaseUrl(): string {
+  const url = env.DATABASE_URL;
+  if (!process.env.VERCEL || /[?&]connection_limit=/.test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}connection_limit=1`;
+}
+
 function createClient(): PrismaClient {
   return new PrismaClient({
     datasources: {
       db: {
-        url: env.DATABASE_URL,
+        url: databaseUrl(),
       },
     },
     log:

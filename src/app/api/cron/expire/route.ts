@@ -10,7 +10,7 @@ import { expireStaleOffers } from "@/server/offers/service";
  * anybody who guesses it. Configure `CRON_SECRET` and point your scheduler at
  * `POST /api/cron/expire` with `Authorization: Bearer <CRON_SECRET>`.
  */
-export async function POST(req: NextRequest) {
+async function runExpire(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
     const header = req.headers.get("authorization");
@@ -27,4 +27,13 @@ export async function POST(req: NextRequest) {
 
   const [requests, offers] = await Promise.all([expireStaleRequests(), expireStaleOffers()]);
   return NextResponse.json({ success: true, data: { ...requests, ...offers } });
+}
+
+/** Vercel Cron calls GET. Manual schedulers may still POST. */
+export async function GET(req: NextRequest) {
+  return runExpire(req);
+}
+
+export async function POST(req: NextRequest) {
+  return runExpire(req);
 }

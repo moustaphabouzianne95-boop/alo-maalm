@@ -188,6 +188,25 @@ Admin routes under `/api/admin/*` require an admin session: users, professionals
 - Destructive admin actions ask for confirmation in the UI and are written to `audit_logs`.
 - `POST /api/cron/expire` should be called with `CRON_SECRET` in production.
 
+## Vercel
+
+`vercel.json` builds with `prisma generate`, `prisma migrate deploy`, and `next build`, in the Paris region (`cdg1`). A daily cron calls `GET /api/cron/expire`.
+
+Set these in the Vercel project (Production), then deploy. Do not commit them.
+
+| Variable | Value |
+| --- | --- |
+| `APP_ENV` | `production` |
+| `DATABASE_URL` | Pooled Postgres URL (Neon or Vercel Postgres). Direct URL is fine for a small demo if you add `connection_limit=1`. |
+| `AUTH_SECRET` | New random string, at least 32 characters |
+| `CRON_SECRET` | Random string. Vercel Cron sends it as `Authorization: Bearer …` |
+| `NEXT_PUBLIC_APP_URL` | The `https://….vercel.app` origin, no trailing slash |
+| `NEXT_PUBLIC_APP_NAME` | `ألو المعلم` |
+| `PAYMENTS_ENABLED` | `false` |
+| `STORAGE_PROVIDER` | `local` for the demo. Uploaded files do not persist on Vercel; use S3 or Cloudinary before real uploads. |
+
+A public demo can be seeded once (`npm run db:seed` against that `DATABASE_URL`). Do not re-seed a database that has real users — the seed clears existing rows. Demo password remains `Demo@12345`.
+
 ## Deployment
 
 1. Provision PostgreSQL. Set `DATABASE_URL` and a new `AUTH_SECRET`.
