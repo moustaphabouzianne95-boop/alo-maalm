@@ -47,7 +47,27 @@ export function NotificationBell({ role }: { role: "CUSTOMER" | "PROFESSIONAL" |
 
   const { data, isLoading } = useQuery({
     queryKey: ["notifications", "latest"],
-    queryFn: () => api.get<NotificationPage>("/api/notifications?perPage=8"),
+    queryFn: async (): Promise<NotificationPage> => {
+      // The route returns the rows as `data` and unread/total as `meta`.
+      // Older callers expected `{ items }` inside `data`. Accept both, and never
+      // read `.length` on a missing array — that crashed the dashboard after login.
+      const envelope = await api.getWithMeta<NotificationRow[] | NotificationPage>("/api/notifications?perPage=8");
+      const payload = envelope.data;
+      const meta = envelope.meta ?? {};
+      if (payload && !Array.isArray(payload) && Array.isArray(payload.items)) {
+        return {
+          items: payload.items,
+          unreadTotal: payload.unreadTotal ?? Number(meta.unreadTotal ?? 0),
+          total: payload.total ?? Number(meta.total ?? payload.items.length),
+        };
+      }
+      const items = Array.isArray(payload) ? payload : [];
+      return {
+        items,
+        unreadTotal: Number(meta.unreadTotal ?? 0),
+        total: Number(meta.total ?? items.length),
+      };
+    },
     refetchInterval: open ? 15_000 : 30_000,
   });
 
@@ -61,7 +81,7 @@ export function NotificationBell({ role }: { role: "CUSTOMER" | "PROFESSIONAL" |
         queryClient.setQueryData<NotificationPage>(["notifications", "latest"], {
           ...previous,
           unreadTotal: 0,
-          items: previous.items.map((item) => ({ ...item, isRead: true })),
+          items: (previous.items ?? []).map((item) => ({ ...item, isRead: true })),
         });
       }
       return { previous };
@@ -76,6 +96,7 @@ export function NotificationBell({ role }: { role: "CUSTOMER" | "PROFESSIONAL" |
   });
 
   const unread = data?.unreadTotal ?? 0;
+  const items = data?.items ?? [];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -124,7 +145,7 @@ export function NotificationBell({ role }: { role: "CUSTOMER" | "PROFESSIONAL" |
                 </div>
               ))}
             </div>
-          ) : !data?.items.length ? (
+          ) : items.length === 0 ? (
             <EmptyState
               icon={<Bell className="h-8 w-8" aria-hidden />}
               title={t("notifications.empty.title")}
@@ -133,7 +154,7 @@ export function NotificationBell({ role }: { role: "CUSTOMER" | "PROFESSIONAL" |
             />
           ) : (
             <ul className="divide-y">
-              {data.items.map((item) => {
+              {items.map((item) => {
                 const icon = notificationIcon(item.type);
                 const tone = notificationTone(item.type);
                 const content = (

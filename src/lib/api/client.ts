@@ -6,7 +6,7 @@
  * an `ApiClientError` carrying the server's `code`, which lets UI copy be
  * chosen by code rather than by string matching.
  */
-import type { ApiResponse } from "./respond";
+import type { ApiResponse, ApiSuccess } from "./respond";
 import type { ErrorCodeValue } from "./errors";
 
 export class ApiClientError extends Error {
@@ -50,6 +50,8 @@ interface RequestOptions {
   headers?: Record<string, string>;
   /** Skip throwing so the caller can inspect the envelope (used by health checks). */
   raw?: boolean;
+  /** Return `{ data, meta }` instead of unwrapping `data`. List routes put pagination there. */
+  envelope?: boolean;
 }
 
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
@@ -94,11 +96,15 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     );
   }
 
+  if (options.envelope) return payload as T;
   return payload.data;
 }
 
 export const api = {
   get: <T>(path: string, options?: Omit<RequestOptions, "body" | "form">) => request<T>("GET", path, options),
+  /** List endpoints return the rows in `data` and pagination in `meta`. */
+  getWithMeta: <T>(path: string, options?: Omit<RequestOptions, "body" | "form" | "envelope">) =>
+    request<ApiSuccess<T>>("GET", path, { ...options, envelope: true }),
   post: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, "body">) =>
     request<T>("POST", path, { ...options, body }),
   postForm: <T>(path: string, form: FormData, options?: Omit<RequestOptions, "body" | "form">) =>
