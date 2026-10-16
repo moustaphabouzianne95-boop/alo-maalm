@@ -29,7 +29,7 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   REDIS_URL: z.string().optional(),
 
-  STORAGE_PROVIDER: z.enum(["local", "cloudinary", "s3"]).default("local"),
+  STORAGE_PROVIDER: z.enum(["local", "cloudinary", "s3", "blob"]).default("local"),
   UPLOAD_DIR: z.string().default("./public/uploads"),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().max(25).default(5),
   ALLOWED_IMAGE_TYPES: z.string().default("image/jpeg,image/png,image/webp"),
@@ -41,6 +41,9 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
+  /** Set automatically when a Vercel Blob store is connected. */
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
+  BLOB_STORE_ID: z.string().optional(),
 
   PAYMENTS_ENABLED: booleanish,
   PLATFORM_COMMISSION_RATE: z.coerce.number().min(0).max(1).default(0.1),

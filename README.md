@@ -18,7 +18,7 @@ It shows the Arabic-first screens, the offer-accept flow, and the demo accounts.
 - Reviews only after a completed booking, one review per booking, cancelled jobs excluded.
 - In-app notifications, conversations, reports, favorites, and an admin console (users, moderation, categories, audit, analytics).
 - Arabic-first RTL UI, French and English LTR, prices shown as MAD.
-- Pluggable storage (local disk, Cloudinary, or S3) and pluggable email. Missing optional SDKs do not fail the build.
+- Pluggable storage (local disk, Vercel Blob, Cloudinary, or S3) and pluggable email. Missing optional SDKs do not fail the build.
 - Payments, escrow, wallets, WhatsApp/SMS, and maps are modeled only — not processed.
 
 ## Stack
@@ -77,7 +77,7 @@ Put it in `AUTH_SECRET` (at least 32 characters). Never commit `.env`.
 | `AUTH_SECRET` | Signs the session cookie |
 | `AUTH_COOKIE_NAME` | Cookie name (default `alomaalem_session`) |
 | `NEXT_PUBLIC_APP_URL` | Public origin, no trailing path |
-| `STORAGE_PROVIDER` | `local` (default), `cloudinary`, or `s3` |
+| `STORAGE_PROVIDER` | `local` (default), `blob`, `cloudinary`, or `s3` |
 | `EMAIL_PROVIDER` | `console` (default), `smtp`, or `resend` |
 | `PAYMENTS_ENABLED` | Keep `false` until a payment provider is integrated |
 | `SEED_PASSWORD` | **Development only.** Password written by the seed script |
@@ -203,7 +203,7 @@ Set these in the Vercel project (Production), then deploy. Do not commit them.
 | `NEXT_PUBLIC_APP_URL` | The `https://….vercel.app` origin, no trailing slash |
 | `NEXT_PUBLIC_APP_NAME` | `ألو المعلم` |
 | `PAYMENTS_ENABLED` | `false` |
-| `STORAGE_PROVIDER` | `local` for the demo. Uploaded files do not persist on Vercel; use S3 or Cloudinary before real uploads. |
+| `STORAGE_PROVIDER` | `blob` on Vercel. The connected store injects `BLOB_READ_WRITE_TOKEN`. `local` is only for a machine with a disk. |
 
 A public demo can be seeded once (`npm run db:seed` against that `DATABASE_URL`). Do not re-seed a database that has real users — the seed clears existing rows. Demo password remains `Demo@12345`.
 
@@ -224,7 +224,7 @@ npm start
 
 `npm start` listens on `0.0.0.0:3000`. Put TLS in front of it (reverse proxy or platform). Point a scheduler at `POST /api/cron/expire` with the `CRON_SECRET` header so stale requests and offers expire.
 
-Local disk uploads do not survive a multi-instance or ephemeral filesystem deploy. Set `STORAGE_PROVIDER=s3` (or Cloudinary) and install `@aws-sdk/client-s3` only on that deploy. The app degrades with a clear error if S3 is selected and the SDK is missing, instead of failing `next build`.
+Local disk uploads do not survive a multi-instance or ephemeral filesystem deploy. Production uses Vercel Blob (`STORAGE_PROVIDER=blob`) so service photos, avatars, and verification documents persist. S3 or Cloudinary remain available; the app degrades with a clear error if S3 is selected and `@aws-sdk/client-s3` is missing, instead of failing `next build`.
 
 Health check: `GET /api/health`.
 

@@ -25,7 +25,7 @@ export interface StoredFile {
   provider: StorageProviderName;
 }
 
-export type StorageProviderName = "local" | "cloudinary" | "s3";
+export type StorageProviderName = "local" | "cloudinary" | "s3" | "blob";
 
 export interface StorageProvider {
   readonly name: StorageProviderName;
@@ -208,6 +208,45 @@ class S3Provider implements StorageProvider {
   }
 }
 
+class BlobStorageProvider implements StorageProvider {
+  readonly name = "blob" as const;
+
+  private assertConfigured() {
+    if (!env.BLOB_READ_WRITE_TOKEN && !env.BLOB_STORE_ID) {
+      throw new ApiError(ErrorCode.SERVICE_UNAVAILABLE, "Vercel Blob is not configured on this server.");
+    }
+  }
+
+  async put({ file, folder }: { file: File; folder: string }) {
+    this.assertConfigured();
+    const mimeType = validateUpload(file);
+    const { put } = await import("@vercel/blob");
+    const ext = EXT_BY_MIME[mimeType] ?? "bin";
+    const pathname = `alomaalem/${slugify(folder, "uploads")}/${Date.now().toString(36)}-${randomUUID().slice(0, 8)}.${ext}`;
+    const blob = await put(pathname, file, {
+      access: "public",
+      contentType: mimeType,
+      addRandomSuffix: false,
+      // An explicit token wins over OIDC, so a connected store works even when
+      // BLOB_STORE_ID is not injected into the runtime.
+      ...(env.BLOB_READ_WRITE_TOKEN ? { token: env.BLOB_READ_WRITE_TOKEN } : {}),
+    });
+    return {
+      url: blob.url,
+      key: blob.pathname,
+      mimeType,
+      sizeBytes: file.size,
+      provider: this.name,
+    };
+  }
+
+  async remove(key: string) {
+    if (!env.BLOB_READ_WRITE_TOKEN && !env.BLOB_STORE_ID) return;
+    const { del } = await import("@vercel/blob");
+    await del(key, env.BLOB_READ_WRITE_TOKEN ? { token: env.BLOB_READ_WRITE_TOKEN } : {}).catch(() => undefined);
+  }
+}
+
 let provider: StorageProvider | null = null;
 
 export function getStorage(): StorageProvider {
@@ -218,6 +257,9 @@ export function getStorage(): StorageProvider {
       break;
     case "s3":
       provider = new S3Provider();
+      break;
+    case "blob":
+      provider = new BlobStorageProvider();
       break;
     default:
       provider = new LocalStorageProvider();
